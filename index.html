@@ -285,7 +285,31 @@ function renderSummary(){
  $("stats").innerHTML=`<div class="stat">Số báo cáo<b>${rows.length}</b></div><div class="stat">Giờ chạy máy<b>${run.toFixed(1)}</b></div><div class="stat">Tổng vào sàng<b>${ti.toFixed(2)} tấn</b></div><div class="stat">Tổng sản xuất<b>${to.toFixed(2)} tấn</b></div>`;
  let html="<tr><th>Nhóm</th><th>Loại</th><th>Sản lượng (tấn)</th></tr>";cfg.input.forEach(k=>html+=`<tr><td>Vào sàng</td><td>${k}</td><td>${sums[k].toFixed(2)}</td></tr>`);cfg.output.forEach(k=>html+=`<tr><td>Sản xuất</td><td>${k}</td><td>${sums[k].toFixed(2)}</td></tr>`);$("summaryTable").innerHTML=html;
 }
-function renderStorage(){let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Ghi chú</th><th>Thao tác</th></tr>";data.slice().sort((a,b)=>(b.date+b.shift).localeCompare(a.date+a.shift)).forEach(r=>html+=`<tr><td>${r.date}</td><td>${r.shift}</td><td>${r.run}</td><td>${r.note||""}</td><td><button class="danger" onclick="del(${r.id})">Xóa</button></td></tr>`);$("storageTable").innerHTML=html}
+function renderStorage(){
+    let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Ghi chú</th><th>Thao tác</th></tr>";
+
+    data.slice()
+    .sort((a,b)=>(b.date+b.shift).localeCompare(a.date+a.shift))
+    .forEach(r=>{
+        let action = "";
+
+        if(currentUser && currentUser.role === "admin"){
+            action = `<button class="danger" onclick="del(${r.id})">Xóa</button>`;
+        }else{
+            action = "👁️ Chỉ xem";
+        }
+
+        html += `<tr>
+            <td>${r.date}</td>
+            <td>${r.shift}</td>
+            <td>${r.run}</td>
+            <td>${r.note||""}</td>
+            <td>${action}</td>
+        </tr>`;
+    });
+
+    $("storageTable").innerHTML=html;
+}
 function del(id){if(confirm("Xóa báo cáo này?")){data=data.filter(x=>x.id!==id);localStorage.setItem("tt4_data",JSON.stringify(data));renderStorage();renderReport();renderSummary()}}
 function renderSettings(){ $("cfgTitle").value=cfg.title;$("cfgUnit").value=cfg.unit;catEditor("inputCats",cfg.input,"input");catEditor("outputCats",cfg.output,"output")}
 function catEditor(id,list,type){$(id).innerHTML=list.map((x,i)=>`<div class="grid" style="margin-bottom:6px"><input id="${type}Cat${i}" value="${x}"><button class="danger" onclick="removeCat('${type}',${i})">Xóa</button></div>`).join("")}
