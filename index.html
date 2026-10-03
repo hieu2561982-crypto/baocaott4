@@ -122,7 +122,7 @@ body.loggedIn #loginScreen{
 </section>
 
 <section id="luu" class="page">
-<div class="card"><h2>Lưu trữ dữ liệu</h2><div class="actions"><button onclick="exportJSON()">⬇️ Sao lưu dữ liệu</button><button class="secondary" onclick="document.getElementById('importFile').click()">⬆️ Khôi phục dữ liệu</button><input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)"><button class="danger" onclick="clearAll()">Xóa toàn bộ dữ liệu</button></div></div>
+<div class="card"><h2>Lưu trữ dữ liệu</h2><div class="actions"><button onclick="exportJSON()">⬇️ Sao lưu dữ liệu</button><button class="secondary" onclick="document.getElementById('importFile').click()">⬆️ Khôi phục dữ liệu</button><input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)"><button class="danger" id="btnClearAll" onclick="clearAll()">Xóa toàn bộ dữ liệu</button></div></div>
 <div class="card scroll"><table id="storageTable"></table></div>
 </section>
 
@@ -219,8 +219,20 @@ function init(){
  $("filterDate").value=new Date().toISOString().slice(0,10);
  $("fromDate").value=new Date(new Date().getFullYear(),0,1).toISOString().slice(0,10);
  $("toDate").value=new Date().toISOString().slice(0,10);
- renderInput();renderOutput();renderSettings();renderReport();renderSummary();renderStorage();show("nhap");
+ renderInput();
+renderOutput();
+renderSettings();
+renderReport();
+renderSummary();
+renderStorage();
+
+if(currentUser && currentUser.role === "admin"){
+    $("btnClearAll").style.display = "inline-block";
+}else{
+    $("btnClearAll").style.display = "none";
 }
+
+show("nhap");
 function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));$("n-"+id).classList.add("active")}
 function fields(list,prefix){
  return list.map((x,i)=>`<div><label>${x} (${cfg.unit})</label><input type="number" min="0" step="0.01" id="${prefix}${i}" placeholder="0"></div>`).join("");
