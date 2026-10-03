@@ -228,10 +228,43 @@ function fields(list,prefix){
 function renderInput(){$("inputGrid").innerHTML=fields(cfg.input,"i")}
 function renderOutput(){$("outputGrid").innerHTML=fields(cfg.output,"o")}
 function vals(list,prefix){let o={};list.forEach((x,i)=>o[x]=Number($(prefix+i).value)||0);return o}
-function saveReport(){
- let rec={id:Date.now(),date:$("date").value,shift:$("shift").value,run:Number($("run").value)||0,consume:Number($("consume").value)||0,input:vals(cfg.input,"i"),output:vals(cfg.output,"o"),note:$("note").value};
- data=data.filter(x=>!(x.date===rec.date&&x.shift===rec.shift));data.push(rec);localStorage.setItem("tt4_data",JSON.stringify(data));
- alert("Đã lưu báo cáo "+rec.date+" – "+rec.shift);renderReport();renderSummary();renderStorage();resetForm(false);
+async function saveReport(){
+    let rec={
+        id:Date.now(),
+        date:$("date").value,
+        shift:$("shift").value,
+        run:Number($("run").value)||0,
+        consume:Number($("consume").value)||0,
+        input:vals(cfg.input,"i"),
+        output:vals(cfg.output,"o"),
+        note:$("note").value
+    };
+
+    try{
+        // Lưu lên Firebase Firestore
+        const docId = rec.date + "_" + rec.shift.replace(/\s/g,"");
+
+        await window.firestoreSetDoc(
+            window.firebaseDoc(window.db,"reports",docId),
+            rec
+        );
+
+        // Vẫn lưu trên máy để app cũ hoạt động bình thường
+        data=data.filter(x=>!(x.date===rec.date&&x.shift===rec.shift));
+        data.push(rec);
+        localStorage.setItem("tt4_data",JSON.stringify(data));
+
+        alert("✅ Đã lưu báo cáo lên Firebase: "+rec.date+" – "+rec.shift);
+
+        renderReport();
+        renderSummary();
+        renderStorage();
+        resetForm(false);
+
+    }catch(error){
+        console.error(error);
+        alert("❌ Không lưu được Firebase:\n"+error.message);
+    }
 }
 function resetForm(clearDate=true){document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");$("note").value="";if(clearDate)$("date").value=new Date().toISOString().slice(0,10)}
 function filtered(){let d=$("filterDate").value,s=$("filterShift").value,t=$("filterText").value.toLowerCase();return data.filter(r=>(!d||r.date===d)&&(!s||r.shift===s)&&(!t||Object.keys(r.input).concat(Object.keys(r.output)).some(k=>k.toLowerCase().includes(t))))}
@@ -273,8 +306,7 @@ document.body.classList.remove("loggedIn");
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-    import { getFirestore } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-
+    import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
     const firebaseConfig = {
         apiKey: "AIzaSyB3qoTMjYyQqM8jc8m65lu54faMxCAivAA",
         authDomain: "baocaott4.firebaseapp.com",
@@ -289,6 +321,9 @@ document.body.classList.remove("loggedIn");
 
     const auth = getAuth(app);
     const db = getFirestore(app);
+    window.db = db;
+window.firestoreSetDoc = setDoc;
+    window.firebaseDoc = doc;
 window.firebaseAuth = auth;
 
     console.log("Firebase đã kết nối thành công!");
