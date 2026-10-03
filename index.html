@@ -420,7 +420,22 @@ const email = username + "@baocaott4.com";
     password
 );
 
-/// Khởi tạo giao diện như phiên bản cũ
+// Xác định quyền người dùng
+if (result.user.email.toLowerCase() === "admin@baocaott4.com") {
+    currentUser = {
+        username: "admin",
+        name: "Quản trị viên",
+        role: "admin"
+    };
+} else {
+    currentUser = {
+        username: result.user.email.split("@")[0].toUpperCase(),
+        name: result.user.email,
+        role: "user"
+    };
+}
+
+// Khởi tạo giao diện
 init();
 
 // Tải dữ liệu báo cáo từ Firebase
