@@ -330,7 +330,50 @@ document.body.classList.remove("loggedIn");
 window.firestoreSetDoc = setDoc;
     window.firebaseDoc = doc;
 window.firebaseAuth = auth;
+window.firebaseAuth = auth;
 
+// ===============================
+// TẢI BÁO CÁO TỪ FIREBASE
+// ===============================
+async function loadReportsFromFirebase() {
+    try {
+        const snapshot = await getDocs(
+            collection(db, "reports")
+        );
+
+        data = [];
+
+        snapshot.forEach((docSnap) => {
+            data.push(docSnap.data());
+        });
+
+        localStorage.setItem(
+            "tt4_data",
+            JSON.stringify(data)
+        );
+
+        console.log(
+            "Đã tải " + data.length + " báo cáo từ Firebase"
+        );
+
+        renderReport();
+        renderSummary();
+        renderStorage();
+
+    } catch (error) {
+        console.error(
+            "Lỗi tải dữ liệu Firebase:",
+            error
+        );
+
+        alert(
+            "❌ Không tải được dữ liệu từ Firebase!\n\n" +
+            error.message
+        );
+    }
+}
+
+console.log("Firebase đã kết nối thành công!");
     console.log("Firebase đã kết nối thành công!");
 import {
     signInWithEmailAndPassword,
@@ -344,14 +387,17 @@ window.loginFirebase = async function () {
 
     try {
         const result = await signInWithEmailAndPassword(
-            auth,
-            email,
-            password
-        );
+    auth,
+    email,
+    password
+);
 
-        document.body.classList.add("loggedIn");
+// Tải dữ liệu báo cáo từ Firebase
+await loadReportsFromFirebase();
 
-        console.log("Đăng nhập thành công:", result.user.email);
+document.body.classList.add("loggedIn");
+
+console.log("Đăng nhập thành công:", result.user.email);
 
     } catch (error) {
         console.error(error);
