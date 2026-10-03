@@ -382,7 +382,11 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 window.loginFirebase = async function () {
-    const email = document.getElementById("loginUser").value.trim();
+   let username = document.getElementById("loginUser").value.trim();
+
+username = username.toLowerCase().replace(/\s+/g, "");
+
+const email = username + "@baocaott4.com";
     const password = document.getElementById("loginPass").value;
 
     try {
