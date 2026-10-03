@@ -322,7 +322,20 @@ function renderStorage(){
 
     $("storageTable").innerHTML=html;
 }
-function del(id){if(confirm("Xóa báo cáo này?")){data=data.filter(x=>x.id!==id);localStorage.setItem("tt4_data",JSON.stringify(data));renderStorage();renderReport();renderSummary()}}
+function del(id){
+    if(!currentUser || currentUser.role !== "admin"){
+        alert("❌ Bạn không có quyền xóa dữ liệu!");
+        return;
+    }
+
+    if(confirm("Xóa báo cáo này?")){
+        data=data.filter(x=>x.id!==id);
+        localStorage.setItem("tt4_data",JSON.stringify(data));
+        renderStorage();
+        renderReport();
+        renderSummary();
+    }
+}
 function renderSettings(){ $("cfgTitle").value=cfg.title;$("cfgUnit").value=cfg.unit;catEditor("inputCats",cfg.input,"input");catEditor("outputCats",cfg.output,"output")}
 function catEditor(id,list,type){$(id).innerHTML=list.map((x,i)=>`<div class="grid" style="margin-bottom:6px"><input id="${type}Cat${i}" value="${x}"><button class="danger" onclick="removeCat('${type}',${i})">Xóa</button></div>`).join("")}
 function removeCat(type,i){cfg[type].splice(i,1);renderSettings()}
@@ -341,7 +354,20 @@ function exportCSV(){
 function exportJSON(){download(new Blob([JSON.stringify({cfg,data},null,2)],{type:"application/json"}),"TT4_sao_luu.json")}
 function importJSON(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.cfg)cfg=x.cfg;if(x.data)data=x.data;localStorage.setItem("tt4_cfg",JSON.stringify(cfg));localStorage.setItem("tt4_data",JSON.stringify(data));init();alert("Đã khôi phục dữ liệu")}catch{alert("File không hợp lệ")}};r.readAsText(f)}
 function download(blob,name){let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
-function clearAll(){if(confirm("Xóa TOÀN BỘ dữ liệu đã lưu trên máy?")){data=[];localStorage.removeItem("tt4_data");renderStorage();renderReport();renderSummary()}}
+function clearAll(){
+    if(!currentUser || currentUser.role !== "admin"){
+        alert("❌ Bạn không có quyền xóa dữ liệu!");
+        return;
+    }
+
+    if(confirm("Xóa TOÀN BỘ dữ liệu đã lưu trên máy?")){
+        data=[];
+        localStorage.removeItem("tt4_data");
+        renderStorage();
+        renderReport();
+        renderSummary();
+    }
+}
 document.body.classList.remove("loggedIn");
 </script>
 <script type="module">
