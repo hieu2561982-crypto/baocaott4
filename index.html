@@ -241,7 +241,7 @@ async function saveReport(){
     };
 
     try{
-        // Lưu lên Firebase Firestore
+        // Lưu báo cáo lên Firebase Firestore
         const docId = rec.date + "_" + rec.shift.replace(/\s/g,"");
 
         await window.firestoreSetDoc(
@@ -249,11 +249,13 @@ async function saveReport(){
             rec
         );
 
-        // Vẫn lưu trên máy để app cũ hoạt động bình thường
+        // Đồng thời lưu trên máy để app cũ vẫn hoạt động
         data=data.filter(x=>!(x.date===rec.date&&x.shift===rec.shift));
         data.push(rec);
+        localStorage.setItem("tt4_data",JSON.stringify(data));
 
-        alert("✅ Đã lưu báo cáo lên Firebase: "+rec.date+" – "+rec.shift);
+        alert("✅ Đã lưu báo cáo lên Firebase!\n\nNgày: "
+            + rec.date + "\nCa: " + rec.shift);
 
         renderReport();
         renderSummary();
@@ -261,8 +263,12 @@ async function saveReport(){
         resetForm(false);
 
     }catch(error){
-        console.error(error);
-        alert("❌ Không lưu được Firebase:\n"+error.message);
+        console.error("Lỗi Firebase:",error);
+
+        alert(
+            "❌ Không lưu được lên Firebase!\n\n" +
+            error.message
+        );
     }
 }
 function resetForm(clearDate=true){document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");$("note").value="";if(clearDate)$("date").value=new Date().toISOString().slice(0,10)}
