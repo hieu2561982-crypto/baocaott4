@@ -66,8 +66,6 @@ td:first-child,td:nth-child(2){text-align:left}.scroll{overflow:auto}
 body.loggedIn #loginScreen{
     display:none;
 }
-.adminOnly{display:none}
-body.isAdmin .adminOnly{display:inline-block}
 </style>
 </head>
 <body>
@@ -86,7 +84,7 @@ body.isAdmin .adminOnly{display:inline-block}
         <p id="loginError"></p>
     </div>
 </div>
-<header><h1 id="appTitle">TUYỂN THAN 4 – BÁO CÁO SẢN XUẤT</h1><small>Dữ liệu báo cáo được đồng bộ trực tuyến qua Firebase</small></header>
+<header><h1 id="appTitle">TUYỂN THAN 4 – BÁO CÁO SẢN XUẤT</h1><small>Phiên bản cá nhân • Dữ liệu lưu ngay trên máy này</small></header>
 <nav>
 <button onclick="show('nhap')" id="n-nhap">📝 Nhập báo cáo</button>
 <button onclick="show('bao')" id="n-bao">📊 Báo cáo</button>
@@ -106,19 +104,9 @@ body.isAdmin .adminOnly{display:inline-block}
 </div>
 </div>
 <div class="card"><h3>Than vào sàng (tấn)</h3><div id="inputGrid" class="grid"></div></div>
-    <div class="card">
-    <h3>Than tiêu thụ (tấn)</h3>
-    <div class="grid">
-        <div>
-            <label>Than tiêu thụ (tấn)</label>
-            <input type="number" min="0" step="0.01"
-                   id="coalConsumed" placeholder="0">
-        </div>
-    </div>
-</div>
 <div class="card"><h3>Than, đá sản xuất (tấn)</h3><div id="outputGrid" class="grid"></div></div>
 <div class="card"><label>Ghi chú / sự cố</label><input id="note" placeholder="Nhập ghi chú nếu có...">
-<div class="actions"><button id="saveReportBtn" onclick="saveReport()">💾 Lưu báo cáo</button><button class="secondary" onclick="resetForm()">Xóa form</button></div></div>
+<div class="actions"><button onclick="saveReport()">💾 Lưu báo cáo</button><button class="secondary" onclick="resetForm()">Xóa form</button></div></div>
 <div class="note">Dữ liệu được lưu trong trình duyệt bằng LocalStorage. Bạn có thể xuất file CSV để mở bằng Excel.</div>
 </section>
 
@@ -134,7 +122,7 @@ body.isAdmin .adminOnly{display:inline-block}
 </section>
 
 <section id="luu" class="page">
-<div class="card"><h2>Lưu trữ dữ liệu</h2><p id="storagePermission">Bạn có quyền xem các báo cáo đã lưu.</p><div class="actions"><button onclick="exportJSON()">⬇️ Sao lưu dữ liệu</button><button class="secondary adminOnly" onclick="document.getElementById('importFile').click()">⬆️ Khôi phục dữ liệu</button><input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)"><button class="danger adminOnly" onclick="clearAll()">Xóa toàn bộ dữ liệu</button></div></div>
+<div class="card"><h2>Lưu trữ dữ liệu</h2><div class="actions"><button onclick="exportJSON()">⬇️ Sao lưu dữ liệu</button><button class="secondary" onclick="document.getElementById('importFile').click()">⬆️ Khôi phục dữ liệu</button><input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)"><button class="danger" onclick="clearAll()">Xóa toàn bộ dữ liệu</button></div></div>
 <div class="card scroll"><table id="storageTable"></table></div>
 </section>
 
@@ -157,7 +145,6 @@ const defaultCfg={
 };
 let cfg=JSON.parse(localStorage.getItem("tt4_cfg")||"null")||defaultCfg;
 let data=[];
-let editingReportKey = null;
 const $=id=>document.getElementById(id);
 const defaultUsers = [
     {
@@ -219,11 +206,13 @@ let currentUser = null;function login(){
 const ADMIN_PASSWORD = "123456";
 
 function openAdmin(){
-    if(!currentUser || currentUser.role !== "admin"){
-        alert("⛔ Tài khoản hiện tại chỉ được xem và nhập báo cáo, không có quyền quản trị.");
-        return;
+    const password = prompt("🔐 Nhập mật khẩu quản trị:");
+
+    if(password === ADMIN_PASSWORD){
+        show("cai");
+    }else{
+        alert("❌ Sai mật khẩu!");
     }
-    show("cai");
 }
 function init(){
  $("appTitle").textContent=cfg.title; $("date").value=new Date().toISOString().slice(0,10);
@@ -232,7 +221,7 @@ function init(){
  $("toDate").value=new Date().toISOString().slice(0,10);
  renderInput();renderOutput();renderSettings();renderReport();renderSummary();renderStorage();show("nhap");
 }
-function show(id){if(id==="cai"&&(!currentUser||currentUser.role!=="admin")){alert("⛔ Bạn không có quyền mở khu vực quản trị.");return;}document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));$("n-"+id).classList.add("active")}
+function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));$("n-"+id).classList.add("active")}
 function fields(list,prefix){
  return list.map((x,i)=>`<div><label>${x} (${cfg.unit})</label><input type="number" min="0" step="0.01" id="${prefix}${i}" placeholder="0"></div>`).join("");
 }
@@ -240,31 +229,27 @@ function renderInput(){$("inputGrid").innerHTML=fields(cfg.input,"i")}
 function renderOutput(){$("outputGrid").innerHTML=fields(cfg.output,"o")}
 function vals(list,prefix){let o={};list.forEach((x,i)=>o[x]=Number($(prefix+i).value)||0);return o}
 async function saveReport(){
-    if(!currentUser){alert("Vui lòng đăng nhập trước khi lưu báo cáo.");return;}
-    if(!$("date").value){alert("Vui lòng chọn ngày báo cáo.");return;}
     let rec={
         id:Date.now(),
         date:$("date").value,
         shift:$("shift").value,
         run:Number($("run").value)||0,
         consume:Number($("consume").value)||0,
-        coalConsumed:Number($("coalConsumed").value)||0,
         input:vals(cfg.input,"i"),
         output:vals(cfg.output,"o"),
         note:$("note").value
     };
 
     try{
-        // Mỗi ngày/ca là một báo cáo. Khi sửa, lưu đè đúng báo cáo cũ.
-        const docId = editingReportKey || (rec.date + "_" + rec.shift.replace(/\s/g,""));
-        rec._docId = docId;
+        // Lưu báo cáo lên Firebase Firestore
+        const docId = rec.date + "_" + rec.shift.replace(/\s/g,"");
 
         await window.firestoreSetDoc(
             window.firebaseDoc(window.db,"reports",docId),
             rec
         );
 
-        // Cập nhật danh sách trong giao diện và bộ nhớ trình duyệt.
+        // Đồng thời lưu trên máy để app cũ vẫn hoạt động
         data=data.filter(x=>!(x.date===rec.date&&x.shift===rec.shift));
         data.push(rec);
         localStorage.setItem("tt4_data",JSON.stringify(data));
@@ -275,8 +260,6 @@ async function saveReport(){
         renderReport();
         renderSummary();
         renderStorage();
-        editingReportKey = null;
-        $("saveReportBtn").textContent = "💾 Lưu báo cáo";
         resetForm(false);
 
     }catch(error){
@@ -288,148 +271,41 @@ async function saveReport(){
         );
     }
 }
-function resetForm(clearDate=true){
-    document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");
-    $("note").value="";
-    editingReportKey = null;
-    if($("saveReportBtn")) $("saveReportBtn").textContent = "💾 Lưu báo cáo";
-    if(clearDate)$("date").value=new Date().toISOString().slice(0,10);
-}
-function editReport(id){
-    if(!currentUser || currentUser.role!=="admin"){
-        alert("Chỉ quản trị viên mới được sửa báo cáo đã lưu.");
-        return;
-    }
-    const rec=data.find(x=>String(x.id)===String(id));
-    if(!rec){alert("Không tìm thấy báo cáo cần sửa.");return;}
-    editingReportKey = rec._docId || (rec.date + "_" + rec.shift.replace(/\s/g,""));
-    $("date").value=rec.date || "";
-    $("shift").value=rec.shift || "Ca 1";
-    $("run").value=Number(rec.run)||0;
-    $("consume").value=Number(rec.consume)||0;
-    $("coalConsumed").value=Number(rec.coalConsumed)||0;
-    cfg.input.forEach((name,i)=>{if($("i"+i)) $("i"+i).value=Number((rec.input||{})[name])||0;});
-    cfg.output.forEach((name,i)=>{if($("o"+i)) $("o"+i).value=Number((rec.output||{})[name])||0;});
-    $("note").value=rec.note||"";
-    $("saveReportBtn").textContent="💾 Cập nhật báo cáo";
-    show("nhap");
-    window.scrollTo({top:0,behavior:"smooth"});
-}
-function filtered(){let d=$("filterDate").value,s=$("filterShift").value,t=$("filterText").value.toLowerCase();return data.filter(r=>(!d||r.date===d)&&(!s||r.shift===s)&&(!t||Object.keys(r.input||{}).concat(Object.keys(r.output||{})).some(k=>k.toLowerCase().includes(t))||"than tiêu thụ".includes(t)))}
+function resetForm(clearDate=true){document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");$("note").value="";if(clearDate)$("date").value=new Date().toISOString().slice(0,10)}
+function filtered(){let d=$("filterDate").value,s=$("filterShift").value,t=$("filterText").value.toLowerCase();return data.filter(r=>(!d||r.date===d)&&(!s||r.shift===s)&&(!t||Object.keys(r.input).concat(Object.keys(r.output)).some(k=>k.toLowerCase().includes(t))))}
 function renderReport(){
- let rows=filtered();let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Than tiêu thụ (tấn)</th><th>Tổng vào sàng</th><th>Tổng sản xuất</th><th>Ghi chú</th></tr>";
- rows.sort((a,b)=>(a.date+a.shift).localeCompare(b.date+b.shift)).forEach(r=>{let ti=Object.values(r.input).reduce((a,b)=>a+b,0),to=Object.values(r.output).reduce((a,b)=>a+b,0);html+=`<tr><td>${r.date}</td><td>${r.shift}</td><td>${r.run}</td><td>${Number(r.coalConsumed)||0}</td><td>${ti.toFixed(2)}</td><td>${to.toFixed(2)}</td><td>${r.note||""}</td></tr>`});$("reportTable").innerHTML=html;
+ let rows=filtered();let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Tổng vào sàng</th><th>Tổng sản xuất</th><th>Ghi chú</th></tr>";
+ rows.sort((a,b)=>(a.date+a.shift).localeCompare(b.date+b.shift)).forEach(r=>{let ti=Object.values(r.input).reduce((a,b)=>a+b,0),to=Object.values(r.output).reduce((a,b)=>a+b,0);html+=`<tr><td>${r.date}</td><td>${r.shift}</td><td>${r.run}</td><td>${ti.toFixed(2)}</td><td>${to.toFixed(2)}</td><td>${r.note||""}</td></tr>`});$("reportTable").innerHTML=html;
 }
+function rangeData(){let f=$("fromDate").value,t=$("toDate").value;return data.filter(r=>(!f||r.date>=f)&&(!t||r.date<=t))}
 function renderSummary(){
-    let rows=rangeData(), ti=0, to=0, run=0, coalConsumed=0;
-    let sums={};
-
-    cfg.input.concat(cfg.output).forEach(k=>sums[k]=0);
-
-    rows.forEach(r=>{
-        run+=Number(r.run)||0;
-        coalConsumed+=Number(r.coalConsumed)||0;
-
-        Object.entries(r.input||{}).forEach(([k,v])=>{
-            sums[k]=(sums[k]||0)+(Number(v)||0);
-        });
-
-        Object.entries(r.output||{}).forEach(([k,v])=>{
-            sums[k]=(sums[k]||0)+(Number(v)||0);
-        });
-    });
-
-    ti=cfg.input.reduce((a,k)=>a+(sums[k]||0),0);
-    to=cfg.output.reduce((a,k)=>a+(sums[k]||0),0);
-
-    $("stats").innerHTML=`
-        <div class="stat">Số báo cáo<b>${rows.length}</b></div>
-        <div class="stat">Giờ chạy máy<b>${run.toFixed(1)}</b></div>
-        <div class="stat">Than tiêu thụ<b>${coalConsumed.toFixed(2)} tấn</b></div>
-        <div class="stat">Tổng sản xuất<b>${to.toFixed(2)} tấn</b></div>
-    `;
-
-    let html="<tr><th>Nhóm</th><th>Loại</th><th>Sản lượng (tấn)</th></tr>";
-
-    html+=`<tr>
-        <td>Tiêu thụ</td>
-        <td>Than tiêu thụ</td>
-        <td>${coalConsumed.toFixed(2)}</td>
-    </tr>`;
-
-    cfg.input.forEach(k=>{
-        html+=`<tr><td>Vào sàng</td><td>${k}</td><td>${(sums[k]||0).toFixed(2)}</td></tr>`;
-    });
-
-    cfg.output.forEach(k=>{
-        html+=`<tr><td>Sản xuất</td><td>${k}</td><td>${(sums[k]||0).toFixed(2)}</td></tr>`;
-    });
-
-    $("summaryTable").innerHTML=html;
+ let rows=rangeData(), ti=0,to=0,run=0;let sums={};cfg.input.concat(cfg.output).forEach(k=>sums[k]=0);
+ rows.forEach(r=>{run+=r.run;Object.entries(r.input).forEach(([k,v])=>{sums[k]=(sums[k]||0)+v});Object.entries(r.output).forEach(([k,v])=>{sums[k]=(sums[k]||0)+v});});
+ ti=cfg.input.reduce((a,k)=>a+sums[k],0);to=cfg.output.reduce((a,k)=>a+sums[k],0);
+ $("stats").innerHTML=`<div class="stat">Số báo cáo<b>${rows.length}</b></div><div class="stat">Giờ chạy máy<b>${run.toFixed(1)}</b></div><div class="stat">Tổng vào sàng<b>${ti.toFixed(2)} tấn</b></div><div class="stat">Tổng sản xuất<b>${to.toFixed(2)} tấn</b></div>`;
+ let html="<tr><th>Nhóm</th><th>Loại</th><th>Sản lượng (tấn)</th></tr>";cfg.input.forEach(k=>html+=`<tr><td>Vào sàng</td><td>${k}</td><td>${sums[k].toFixed(2)}</td></tr>`);cfg.output.forEach(k=>html+=`<tr><td>Sản xuất</td><td>${k}</td><td>${sums[k].toFixed(2)}</td></tr>`);$("summaryTable").innerHTML=html;
 }
-function renderStorage(){
-    let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Than tiêu thụ (tấn)</th><th>Ghi chú</th><th>Thao tác</th></tr>";
-
-    data.slice()
-    .sort((a,b)=>(b.date+b.shift).localeCompare(a.date+a.shift))
-    .forEach(r=>{
-        html+=`<tr>
-            <td>${r.date}</td>
-            <td>${r.shift}</td>
-            <td>${r.run}</td>
-            <td>${Number(r.coalConsumed)||0}</td>
-            <td>${r.note||""}</td>
-            <td>${currentUser&&currentUser.role==="admin"?`<button onclick="editReport(${Number(r.id)||0})">Sửa</button> <button class="danger" onclick="del(${Number(r.id)||0})">Xóa</button>`:"Chỉ xem"}</td>
-        </tr>`;
-    });
-
-    $("storageTable").innerHTML=html;
-}
-async function del(id){
-    if(!currentUser||currentUser.role!=="admin"){alert("⛔ Chỉ quản trị viên mới được xóa báo cáo.");return;}
-    const rec=data.find(x=>Number(x.id)===Number(id));
-    if(!rec){alert("Không tìm thấy báo cáo cần xóa.");return;}
-    if(!confirm("Xóa báo cáo ngày "+rec.date+" - "+rec.shift+" trên hệ thống?"))return;
-    try{
-        const docId=rec.date+"_"+rec.shift.replace(/\s/g,"");
-        await window.firestoreDeleteDoc(window.firebaseDoc(window.db,"reports",docId));
-        data=data.filter(x=>!(x.date===rec.date&&x.shift===rec.shift));
-        localStorage.setItem("tt4_data",JSON.stringify(data));
-        renderStorage();renderReport();renderSummary();
-        alert("Đã xóa báo cáo trên Firebase.");
-    }catch(error){console.error(error);alert("Không xóa được báo cáo trên Firebase: "+error.message);}
-}
+function renderStorage(){let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Ghi chú</th><th>Thao tác</th></tr>";data.slice().sort((a,b)=>(b.date+b.shift).localeCompare(a.date+a.shift)).forEach(r=>html+=`<tr><td>${r.date}</td><td>${r.shift}</td><td>${r.run}</td><td>${r.note||""}</td><td><button class="danger" onclick="del(${r.id})">Xóa</button></td></tr>`);$("storageTable").innerHTML=html}
+function del(id){if(confirm("Xóa báo cáo này?")){data=data.filter(x=>x.id!==id);localStorage.setItem("tt4_data",JSON.stringify(data));renderStorage();renderReport();renderSummary()}}
 function renderSettings(){ $("cfgTitle").value=cfg.title;$("cfgUnit").value=cfg.unit;catEditor("inputCats",cfg.input,"input");catEditor("outputCats",cfg.output,"output")}
 function catEditor(id,list,type){$(id).innerHTML=list.map((x,i)=>`<div class="grid" style="margin-bottom:6px"><input id="${type}Cat${i}" value="${x}"><button class="danger" onclick="removeCat('${type}',${i})">Xóa</button></div>`).join("")}
 function removeCat(type,i){cfg[type].splice(i,1);renderSettings()}
 function addInputCat(){cfg.input.push("Mục mới");renderSettings()}
 function addOutputCat(){cfg.output.push("Mục mới");renderSettings()}
 function saveConfig(){
- if(!currentUser||currentUser.role!=="admin"){alert("⛔ Chỉ quản trị viên mới được sửa cấu hình.");return;}
  cfg.title=$("cfgTitle").value||cfg.title;cfg.unit=$("cfgUnit").value||"tấn";
  cfg.input=cfg.input.map((_,i)=>$("inputCat"+i)?.value||"Mục mới");cfg.output=cfg.output.map((_,i)=>$("outputCat"+i)?.value||"Mục mới");
  localStorage.setItem("tt4_cfg",JSON.stringify(cfg));$("appTitle").textContent=cfg.title;renderInput();renderOutput();renderSettings();renderSummary();alert("Đã lưu cấu hình");
 }
 function exportCSV(){
- let rows=rangeData(), headers=["Ngày","Ca","Chạy máy","Chạy tiêu thụ","Than tiêu thụ (tấn)",...cfg.input.map(x=>"Vào - "+x),...cfg.output.map(x=>"SX - "+x),"Ghi chú"];
-let csv=[headers.join(",")];
-rows.forEach(r=>csv.push([r.date,r.shift,r.run,r.consume,Number(r.coalConsumed)||0,...cfg.input.map(k=>r.input[k]||0),...cfg.output.map(k=>r.output[k]||0),`"${(r.note||"").replaceAll('"','""')}"`].join(",")));
+ let rows=rangeData(), headers=["Ngày","Ca","Chạy máy","Chạy tiêu thụ",...cfg.input.map(x=>"Vào - "+x),...cfg.output.map(x=>"SX - "+x),"Ghi chú"];
+ let csv=[headers.join(",")];rows.forEach(r=>csv.push([r.date,r.shift,r.run,r.consume,...cfg.input.map(k=>r.input[k]||0),...cfg.output.map(k=>r.output[k]||0),`"${(r.note||"").replaceAll('"','""')}"`].join(",")));
  download(new Blob(["\ufeff"+csv.join("\n")],{type:"text/csv;charset=utf-8"}),"bao_cao_TT4.csv");
 }
 function exportJSON(){download(new Blob([JSON.stringify({cfg,data},null,2)],{type:"application/json"}),"TT4_sao_luu.json")}
-function importJSON(e){if(!currentUser||currentUser.role!=="admin"){alert("⛔ Chỉ quản trị viên mới được khôi phục dữ liệu.");e.target.value="";return;}let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.cfg)cfg=x.cfg;if(x.data)data=x.data;localStorage.setItem("tt4_cfg",JSON.stringify(cfg));localStorage.setItem("tt4_data",JSON.stringify(data));init();alert("Đã khôi phục dữ liệu")}catch{alert("File không hợp lệ")}};r.readAsText(f)}
+function importJSON(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.cfg)cfg=x.cfg;if(x.data)data=x.data;localStorage.setItem("tt4_cfg",JSON.stringify(cfg));localStorage.setItem("tt4_data",JSON.stringify(data));init();alert("Đã khôi phục dữ liệu")}catch{alert("File không hợp lệ")}};r.readAsText(f)}
 function download(blob,name){let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
-async function clearAll(){
-    if(!currentUser||currentUser.role!=="admin"){alert("⛔ Chỉ quản trị viên mới được xóa dữ liệu.");return;}
-    if(!confirm("CẢNH BÁO: Xóa toàn bộ báo cáo trên Firebase? Thao tác này không thể hoàn tác."))return;
-    if(!confirm("Bạn chắc chắn muốn xóa TOÀN BỘ báo cáo?"))return;
-    try{
-        const snapshot=await window.firestoreGetDocs(window.firestoreCollection(window.db,"reports"));
-        for(const item of snapshot.docs){await window.firestoreDeleteDoc(window.firebaseDoc(window.db,"reports",item.id));}
-        data=[];localStorage.removeItem("tt4_data");renderStorage();renderReport();renderSummary();
-        alert("Đã xóa toàn bộ báo cáo trên Firebase.");
-    }catch(error){console.error(error);alert("Không xóa hết được dữ liệu: "+error.message);}
-}
+function clearAll(){if(confirm("Xóa TOÀN BỘ dữ liệu đã lưu trên máy?")){data=[];localStorage.removeItem("tt4_data");renderStorage();renderReport();renderSummary()}}
 document.body.classList.remove("loggedIn");
 </script>
 <script type="module">
@@ -452,10 +328,8 @@ document.body.classList.remove("loggedIn");
     const db = getFirestore(app);
     window.db = db;
 window.firestoreSetDoc = setDoc;
-window.firestoreDeleteDoc = deleteDoc;
-window.firestoreGetDocs = getDocs;
-window.firestoreCollection = collection;
-window.firebaseDoc = doc;
+    window.firebaseDoc = doc;
+window.firebaseAuth = auth;
 window.firebaseAuth = auth;
 
 // ===============================
@@ -470,10 +344,7 @@ async function loadReportsFromFirebase() {
         data = [];
 
         snapshot.forEach((docSnap) => {
-            const rec={...docSnap.data()};
-            if(!rec.id) rec.id=Date.now()+Math.floor(Math.random()*1000);
-            rec._docId=docSnap.id;
-            data.push(rec);
+            data.push(docSnap.data());
         });
 
         localStorage.setItem(
@@ -502,7 +373,8 @@ async function loadReportsFromFirebase() {
     }
 }
 
-console.log("Firebase đã khởi tạo.");
+console.log("Firebase đã kết nối thành công!");
+    console.log("Firebase đã kết nối thành công!");
 import {
     signInWithEmailAndPassword,
     onAuthStateChanged,
@@ -517,7 +389,6 @@ username = username.toLowerCase().replace(/\s+/g, "");
 const email = username + "@baocaott4.com";
     const password = document.getElementById("loginPass").value;
 
-    document.getElementById("loginError").textContent = "";
     try {
         const result = await signInWithEmailAndPassword(
     auth,
@@ -525,21 +396,15 @@ const email = username + "@baocaott4.com";
     password
 );
 
-// Xác định quyền theo tài khoản Firebase: tài khoản admin có quyền quản trị.
-        const emailDangNhap = (result.user.email || "").toLowerCase();
-        const tenDangNhap = emailDangNhap.split("@")[0];
-        currentUser = {
-            username: tenDangNhap,
-            name: tenDangNhap === "admin" ? "Quản trị viên" : tenDangNhap,
-            role: tenDangNhap === "admin" ? "admin" : "user",
-            email: emailDangNhap
-        };
-        document.body.classList.toggle("isAdmin", currentUser.role === "admin");
+/// Khởi tạo giao diện như phiên bản cũ
+init();
 
-        init();
-        await loadReportsFromFirebase();
-        document.body.classList.add("loggedIn");
-        console.log("Đăng nhập thành công:", result.user.email);
+// Tải dữ liệu báo cáo từ Firebase
+await loadReportsFromFirebase();
+
+document.body.classList.add("loggedIn");
+
+console.log("Đăng nhập thành công:", result.user.email);
 
     } catch (error) {
         console.error(error);
@@ -551,8 +416,7 @@ const email = username + "@baocaott4.com";
 
 window.logoutFirebase = async function () {
     await signOut(auth);
-    currentUser=null;
-    document.body.classList.remove("loggedIn","isAdmin");
+    document.body.classList.remove("loggedIn");
 };
 </script>
 </body>
