@@ -540,17 +540,23 @@ function renderSummary(){
 }
 function renderStorage(){let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Ghi chú</th><th>Thao tác</th></tr>";data.slice().sort((a,b)=>(b.date+b.shift).localeCompare(a.date+a.shift)).forEach(r=>html+=`<tr><td>${r.date}</td><td>${r.shift}</td><td>${r.run}</td><td>${r.note||""}</td><td><button class="danger" onclick="del(${r.id})">Xóa</button></td></tr>`);$("storageTable").innerHTML=html}
 
+
 async function del(id) {
-    if (!confirm("Bạn có chắc muốn xóa báo cáo này khỏi Firebase?")) {
+    if (!confirm("Bạn có chắc muốn xóa báo cáo này?")) {
         return;
     }
 
-    const banGhi = data.find(x => String(x.id) === String(id));
+    const banGhi = data.find(
+        x => String(x.id) === String(id)
+    );
 
     if (!banGhi) {
         alert("Không tìm thấy báo cáo cần xóa.");
         return;
     }
+
+    const docId = banGhi._docId ||
+        (banGhi.date + "_" + banGhi.shift.replace(/\s/g, ""));
 
     try {
         if (!window.firestoreDeleteDoc ||
@@ -559,14 +565,13 @@ async function del(id) {
             throw new Error("Firebase chưa sẵn sàng.");
         }
 
-        const docId =
-            banGhi.date + "_" + banGhi.shift.replace(/\s/g, "");
-
         await window.firestoreDeleteDoc(
             window.firebaseDoc(window.db, "reports", docId)
         );
 
-        data = data.filter(x => String(x.id) !== String(id));
+        data = data.filter(
+            x => String(x.id) !== String(id)
+        );
 
         localStorage.setItem("tt4_data", JSON.stringify(data));
 
@@ -574,11 +579,11 @@ async function del(id) {
         renderReport();
         renderSummary();
 
-        alert("Đã xóa báo cáo khỏi Firebase và website.");
+        alert("Đã gửi lệnh xóa tài liệu " + docId + " lên Firebase.");
 
     } catch (error) {
         console.error("Lỗi xóa báo cáo:", error);
-        alert("Không xóa được báo cáo: " + error.message);
+        alert("Không xóa được: " + error.message);
     }
 }
 
@@ -640,9 +645,12 @@ async function loadReportsFromFirebase() {
 
         data = [];
 
-        snapshot.forEach((docSnap) => {
-            data.push(docSnap.data());
-        });
+     snapshot.forEach((docSnap) => {
+    data.push({
+        ...docSnap.data(),
+        _docId: docSnap.id
+    });
+});
 
         localStorage.setItem(
             "tt4_data",
