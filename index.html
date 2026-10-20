@@ -195,39 +195,8 @@ const gioBaoCaoNhanh = {
         "04:30", "05:30", "06:30", "07:30"
     ]
 };
+    
 const defaultCfg={
-function khoiTaoBangBaoCaoNhanh() {
-    const ca = document.getElementById("nhanhShift").value;
-    const gio = gioBaoCaoNhanh[ca];
-    const tbody = document.querySelector("#nhanhTable tbody");
-    if (!ca || !gio || !tbody) return;
-
-    tbody.innerHTML = gio.map((g, i) => `
-        <tr>
-            <td>${i + 1}</td>
-            <td>${g}</td>
-            <td id="nhanhStatus${i}">Chưa báo cáo</td>
-            <td>
-                <button onclick="nhapBaoCaoNhanh(${i})">
-                    Nhập báo cáo
-                </button>
-            </td>
-        </tr>
-    `).join("");
-
-    document.getElementById("nhanhProgress").textContent =
-        "0/8 lần đã báo cáo";
-}
-
-$("nhanhShift")?.addEventListener("change", async () => {
-    khoiTaoBangBaoCaoNhanh();
-    await taiBaoCaoNhanh();
-});
-
-$("nhanhDate")?.addEventListener("change", async () => {
-    khoiTaoBangBaoCaoNhanh();
-    await taiBaoCaoNhanh();
-});
  title:"TUYỂN THAN 4 – BÁO CÁO SẢN XUẤT",unit:"tấn",
  input:["Khe Chàm","Cao Sơn","Hạ Long","Than KC","Than CS","DON 8C","Than khác"],
  output:["Cám 6a.1","Cục 1C","Cục 8C","Đá","Than cám 6a.1 đổ kho NK","Than KC"]
