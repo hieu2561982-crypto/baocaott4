@@ -165,17 +165,25 @@ body.loggedIn #loginScreen{
     </div>
 
     <div class="card scroll">
-        <table id="nhanhTable">
-            <thead>
-                <tr>
-                    <th>Lần</th>
-                    <th>Giờ báo cáo</th>
-                    <th>Trạng thái</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+       
+<table id="nhanhTable">
+    <thead>
+        <tr>
+            <th>Thời gian</th>
+            <th>Than Khe Chàm (tấn)</th>
+            <th>Than Cao Sơn (tấn)</th>
+            <th>Than Hạ Long (tấn)</th>
+            <th>Tổng sản lượng nhận than NK (tấn)</th>
+            <th>Cục don (tấn)</th>
+            <th>Than cám xuất sang G9 (tấn)</th>
+            <th>Phương án huy động thiết bị</th>
+            <th>Ghi chú</th>
+            <th>Thao tác</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
     </div>
 </section>
 
@@ -278,8 +286,16 @@ function init(){
  $("filterDate").value=new Date().toISOString().slice(0,10);
  $("fromDate").value=new Date(new Date().getFullYear(),0,1).toISOString().slice(0,10);
  $("toDate").value=new Date().toISOString().slice(0,10);
- renderInput();renderOutput();renderSettings();renderReport();renderSummary();khoiTaoBangBaoCaoNhanh();renderStorage();show("nhap");
+renderInput();
+renderOutput();
+renderSettings();
+renderReport();
+renderSummary();
+khoiTaoBangBaoCaoNhanh();
+renderStorage();
+show("nhap");
 }
+
 
 function khoiTaoBangBaoCaoNhanh() {
     const ca = $("nhanhShift");
@@ -288,16 +304,22 @@ function khoiTaoBangBaoCaoNhanh() {
     if (!ca || !tbody) return;
 
     const gio = gioBaoCaoNhanh[ca.value];
+    if (!gio) return;
 
     tbody.innerHTML = gio.map((g, i) => `
         <tr>
-            <td>${i + 1}</td>
             <td>${g}</td>
-            <td id="nhanhStatus${i}">Chưa báo cáo</td>
+            <td><input type="number" min="0" step="0.01" id="nkKheCham${i}" placeholder="0"></td>
+            <td><input type="number" min="0" step="0.01" id="nkCaoSon${i}" placeholder="0"></td>
+            <td><input type="number" min="0" step="0.01" id="nkHaLong${i}" placeholder="0"></td>
+            <td><input type="number" min="0" step="0.01" id="nkTong${i}" placeholder="0"></td>
+            <td><input type="number" min="0" step="0.01" id="nkCucDon${i}" placeholder="0"></td>
+            <td><input type="number" min="0" step="0.01" id="nkCamG9${i}" placeholder="0"></td>
+            <td><input type="text" id="nkPhuongAn${i}" placeholder="Phương án huy động"></td>
+            <td><input type="text" id="nkGhiChu${i}" placeholder="Ghi chú"></td>
             <td>
-                <button onclick="nhapBaoCaoNhanh(${i})">
-                    Nhập báo cáo
-                </button>
+                <button onclick="nhapBaoCaoNhanh(${i})">Lưu lần này</button>
+                <div id="nhanhStatus${i}">Chưa báo cáo</div>
             </td>
         </tr>
     `).join("");
@@ -305,7 +327,17 @@ function khoiTaoBangBaoCaoNhanh() {
     $("nhanhProgress").textContent = "0/8 lần đã báo cáo";
 }
 
-$("nhanhShift")?.addEventListener("change", khoiTaoBangBaoCaoNhanh);
+
+$("nhanhShift")?.addEventListener("change", async () => {
+    khoiTaoBangBaoCaoNhanh();
+    await taiBaoCaoNhanh();
+});
+
+$("nhanhDate")?.addEventListener("change", async () => {
+    khoiTaoBangBaoCaoNhanh();
+    await taiBaoCaoNhanh();
+});
+
 
     function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));$("n-"+id).classList.add("active")}
 function fields(list,prefix){
@@ -358,6 +390,7 @@ async function saveReport(){
     }
 }
 
+
 async function nhapBaoCaoNhanh(i) {
     const ngay = $("nhanhDate").value;
     const ca = $("nhanhShift").value;
@@ -368,33 +401,45 @@ async function nhapBaoCaoNhanh(i) {
         return;
     }
 
-    const sanLuong = prompt(
-        "Nhập tổng sản lượng tại lần báo cáo " +
-        (i + 1) + " (" + gio + "), đơn vị tấn:"
-    );
+    const laySo = id => {
+        const value = $(id + i).value.trim();
 
-    if (sanLuong === null) return;
+        if (value === "") return 0;
 
-    const so = Number(sanLuong);
+        const number = Number(value);
 
-    if (sanLuong.trim() === "" || !Number.isFinite(so) || so < 0) {
-        alert("Vui lòng nhập số không âm hợp lệ!");
+        if (!Number.isFinite(number) || number < 0) {
+            throw new Error("Số liệu phải là số không âm.");
+        }
+
+        return number;
+    };
+
+    let banGhi;
+
+    try {
+        banGhi = {
+            date: ngay,
+            shift: ca,
+            slot: i + 1,
+            time: gio,
+            kheCham: laySo("nkKheCham"),
+            caoSon: laySo("nkCaoSon"),
+            haLong: laySo("nkHaLong"),
+            tongNhanThanNK: laySo("nkTong"),
+            cucDon: laySo("nkCucDon"),
+            camG9: laySo("nkCamG9"),
+            phuongAn: $("nkPhuongAn" + i).value.trim(),
+            note: $("nkGhiChu" + i).value.trim(),
+            updatedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        alert(error.message);
         return;
     }
 
-    const ghiChu = prompt("Nhập ghi chú (nếu có):") || "";
-
-    const banGhi = {
-        date: ngay,
-        shift: ca,
-        slot: i + 1,
-        time: gio,
-        production: so,
-        note: ghiChu,
-        updatedAt: new Date().toISOString()
-    };
-
-    const docId = ngay + "_" + ca.replace(/\s/g, "") + "_G" + (i + 1);
+    const docId =
+        ngay + "_" + ca.replace(/\s/g, "") + "_G" + (i + 1);
 
     try {
         if (!window.firestoreSetDoc || !window.firebaseDoc || !window.db) {
@@ -408,25 +453,25 @@ async function nhapBaoCaoNhanh(i) {
 
         $("nhanhStatus" + i).textContent = "Đã báo cáo";
 
-const soDaBaoCao = document.querySelectorAll(
-    '#nhanhTable tbody td[id^="nhanhStatus"]'
-);
+        const soDaBaoCao = Array.from(
+            document.querySelectorAll(
+                '#nhanhTable tbody td[id^="nhanhStatus"]'
+            )
+        ).filter(x => x.textContent === "Đã báo cáo").length;
 
-const daBaoCao = Array.from(soDaBaoCao).filter(
-    x => x.textContent === "Đã báo cáo"
-).length;
+        $("nhanhProgress").textContent =
+            soDaBaoCao + "/8 lần đã báo cáo";
 
-$("nhanhProgress").textContent =
-    daBaoCao + "/8 lần đã báo cáo";
-
-alert("Đã lưu lần " + (i + 1) + " lúc " + gio + "!");
+        alert("Đã lưu báo cáo lúc " + gio + "!");
 
     } catch (error) {
-        console.error(error);
+        console.error("Lỗi lưu báo cáo nhanh:", error);
         alert("Không lưu được báo cáo nhanh: " + error.message);
     }
 }
-    async function taiBaoCaoNhanh() {
+
+  
+async function taiBaoCaoNhanh() {
     const ngay = $("nhanhDate").value;
     const ca = $("nhanhShift").value;
 
@@ -438,22 +483,38 @@ alert("Đã lưu lần " + (i + 1) + " lúc " + gio + "!");
     let daBaoCao = 0;
 
     for (let i = 0; i < 8; i++) {
-        const docId = ngay + "_" + ca.replace(/\s/g, "") + "_G" + (i + 1);
+        const docId =
+            ngay + "_" + ca.replace(/\s/g, "") + "_G" + (i + 1);
 
         try {
-            const ref = window.firebaseDoc(window.db, "quickReports", docId);
+            const ref = window.firebaseDoc(
+                window.db,
+                "quickReports",
+                docId
+            );
+
             const snap = await window.firebaseGetDoc(ref);
+            const status = $("nhanhStatus" + i);
 
-           const status = $("nhanhStatus" + i);
+            if (!status) continue;
 
-if (!status) continue;
+            if (snap.exists()) {
+                const r = snap.data();
 
-if (snap.exists()) {
-    status.textContent = "Đã báo cáo";
-    daBaoCao++;
-} else {
-    status.textContent = "Chưa báo cáo";
-}
+                $("nkKheCham" + i).value = r.kheCham ?? "";
+                $("nkCaoSon" + i).value = r.caoSon ?? "";
+                $("nkHaLong" + i).value = r.haLong ?? "";
+                $("nkTong" + i).value = r.tongNhanThanNK ?? "";
+                $("nkCucDon" + i).value = r.cucDon ?? "";
+                $("nkCamG9" + i).value = r.camG9 ?? "";
+                $("nkPhuongAn" + i).value = r.phuongAn ?? "";
+                $("nkGhiChu" + i).value = r.note ?? "";
+
+                status.textContent = "Đã báo cáo";
+                daBaoCao++;
+            } else {
+                status.textContent = "Chưa báo cáo";
+            }
         } catch (error) {
             console.error("Lỗi tải báo cáo nhanh:", error);
         }
@@ -463,15 +524,6 @@ if (snap.exists()) {
         daBaoCao + "/8 lần đã báo cáo";
 }
 
-$("nhanhDate")?.addEventListener("change", async () => {
-    khoiTaoBangBaoCaoNhanh();
-    await taiBaoCaoNhanh();
-});
-
-$("nhanhShift")?.addEventListener("change", async () => {
-    khoiTaoBangBaoCaoNhanh();
-    await taiBaoCaoNhanh();
-});
     function resetForm(clearDate=true){document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");$("note").value="";if(clearDate)$("date").value=new Date().toISOString().slice(0,10)}
 function filtered(){let d=$("filterDate").value,s=$("filterShift").value,t=$("filterText").value.toLowerCase();return data.filter(r=>(!d||r.date===d)&&(!s||r.shift===s)&&(!t||Object.keys(r.input).concat(Object.keys(r.output)).some(k=>k.toLowerCase().includes(t))))}
 function renderReport(){
