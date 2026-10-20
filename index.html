@@ -87,6 +87,7 @@ body.loggedIn #loginScreen{
 <header><h1 id="appTitle">TUYỂN THAN 4 – BÁO CÁO SẢN XUẤT</h1><small>Phiên bản cá nhân • Dữ liệu lưu ngay trên máy này</small></header>
 <nav>
 <button onclick="show('nhap')" id="n-nhap">📝 Nhập báo cáo</button>
+<button onclick="show('nhanh')" id="n-nhanh">⚡ Báo cáo nhanh</button>
 <button onclick="show('bao')" id="n-bao">📊 Báo cáo</button>
 <button onclick="show('tong')" id="n-tong">📈 Tổng hợp</button>
 <button onclick="show('luu')" id="n-luu">🗄️ Lưu trữ</button>
@@ -136,9 +137,97 @@ body.loggedIn #loginScreen{
 </div>
 <div class="card"><h3>Gợi ý nâng cấp</h3><ul><li>Đăng nhập từng người dùng.</li><li>Đồng bộ dữ liệu lên Google Sheets/Firebase.</li><li>Quét QR thiết bị để mở đúng biểu mẫu.</li><li>Phân quyền người nhập và người quản lý.</li></ul></div>
 </section>
+<!-- BÁO CÁO NHANH -->
+<section id="nhanh" class="page">
+    <div class="card">
+        <h2>⚡ Báo cáo nhanh theo giờ</h2>
+
+        <div class="grid3">
+            <div>
+                <label>Ngày báo cáo</label>
+                <input type="date" id="nhanhDate">
+            </div>
+
+            <div>
+                <label>Ca sản xuất</label>
+                <select id="nhanhShift">
+                    <option value="Ca 1">Ca 1</option>
+                    <option value="Ca 2">Ca 2</option>
+                    <option value="Ca 3">Ca 3</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Tiến độ báo cáo</label>
+                <p id="nhanhProgress">0/8 lần đã báo cáo</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card scroll">
+        <table id="nhanhTable">
+            <thead>
+                <tr>
+                    <th>Lần</th>
+                    <th>Giờ báo cáo</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
 </main>
 <script>
+const gioBaoCaoNhanh = {
+    "Ca 1": [
+        "08:30", "09:30", "10:30", "11:30",
+        "12:30", "13:30", "14:30", "15:30"
+    ],
+    "Ca 2": [
+        "16:30", "17:30", "18:30", "19:30",
+        "20:30", "21:30", "22:30", "23:30"
+    ],
+    "Ca 3": [
+        "00:30", "01:30", "02:30", "03:30",
+        "04:30", "05:30", "06:30", "07:30"
+    ]
+};
 const defaultCfg={
+function khoiTaoBangBaoCaoNhanh() {
+    const ca = document.getElementById("nhanhShift").value;
+    const gio = gioBaoCaoNhanh[ca];
+    const tbody = document.querySelector("#nhanhTable tbody");
+    if (!ca || !gio || !tbody) return;
+
+    tbody.innerHTML = gio.map((g, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td>${g}</td>
+            <td id="nhanhStatus${i}">Chưa báo cáo</td>
+            <td>
+                <button onclick="nhapBaoCaoNhanh(${i})">
+                    Nhập báo cáo
+                </button>
+            </td>
+        </tr>
+    `).join("");
+
+    document.getElementById("nhanhProgress").textContent =
+        "0/8 lần đã báo cáo";
+}
+
+$("nhanhShift")?.addEventListener("change", async () => {
+    khoiTaoBangBaoCaoNhanh();
+    await taiBaoCaoNhanh();
+});
+
+$("nhanhDate")?.addEventListener("change", async () => {
+    khoiTaoBangBaoCaoNhanh();
+    await taiBaoCaoNhanh();
+});
  title:"TUYỂN THAN 4 – BÁO CÁO SẢN XUẤT",unit:"tấn",
  input:["Khe Chàm","Cao Sơn","Hạ Long","Than KC","Than CS","DON 8C","Than khác"],
  output:["Cám 6a.1","Cục 1C","Cục 8C","Đá","Than cám 6a.1 đổ kho NK","Than KC"]
@@ -216,12 +305,40 @@ function openAdmin(){
 }
 function init(){
  $("appTitle").textContent=cfg.title; $("date").value=new Date().toISOString().slice(0,10);
+ $("nhanhDate").value = new Date().toLocaleDateString("en-CA");
  $("filterDate").value=new Date().toISOString().slice(0,10);
  $("fromDate").value=new Date(new Date().getFullYear(),0,1).toISOString().slice(0,10);
  $("toDate").value=new Date().toISOString().slice(0,10);
- renderInput();renderOutput();renderSettings();renderReport();renderSummary();renderStorage();show("nhap");
+ renderInput();renderOutput();renderSettings();renderReport();renderSummary();khoiTaoBangBaoCaoNhanh();renderStorage();show("nhap");
 }
-function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));$("n-"+id).classList.add("active")}
+
+function khoiTaoBangBaoCaoNhanh() {
+    const ca = $("nhanhShift");
+    const tbody = document.querySelector("#nhanhTable tbody");
+
+    if (!ca || !tbody) return;
+
+    const gio = gioBaoCaoNhanh[ca.value];
+
+    tbody.innerHTML = gio.map((g, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td>${g}</td>
+            <td id="nhanhStatus${i}">Chưa báo cáo</td>
+            <td>
+                <button onclick="nhapBaoCaoNhanh(${i})">
+                    Nhập báo cáo
+                </button>
+            </td>
+        </tr>
+    `).join("");
+
+    $("nhanhProgress").textContent = "0/8 lần đã báo cáo";
+}
+
+$("nhanhShift")?.addEventListener("change", khoiTaoBangBaoCaoNhanh);
+
+    function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));$("n-"+id).classList.add("active")}
 function fields(list,prefix){
  return list.map((x,i)=>`<div><label>${x} (${cfg.unit})</label><input type="number" min="0" step="0.01" id="${prefix}${i}" placeholder="0"></div>`).join("");
 }
@@ -271,7 +388,122 @@ async function saveReport(){
         );
     }
 }
-function resetForm(clearDate=true){document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");$("note").value="";if(clearDate)$("date").value=new Date().toISOString().slice(0,10)}
+
+async function nhapBaoCaoNhanh(i) {
+    const ngay = $("nhanhDate").value;
+    const ca = $("nhanhShift").value;
+    const gio = gioBaoCaoNhanh[ca][i];
+
+    if (!ngay) {
+        alert("Vui lòng chọn ngày báo cáo!");
+        return;
+    }
+
+    const sanLuong = prompt(
+        "Nhập tổng sản lượng tại lần báo cáo " +
+        (i + 1) + " (" + gio + "), đơn vị tấn:"
+    );
+
+    if (sanLuong === null) return;
+
+    const so = Number(sanLuong);
+
+    if (sanLuong.trim() === "" || !Number.isFinite(so) || so < 0) {
+        alert("Vui lòng nhập số không âm hợp lệ!");
+        return;
+    }
+
+    const ghiChu = prompt("Nhập ghi chú (nếu có):") || "";
+
+    const banGhi = {
+        date: ngay,
+        shift: ca,
+        slot: i + 1,
+        time: gio,
+        production: so,
+        note: ghiChu,
+        updatedAt: new Date().toISOString()
+    };
+
+    const docId = ngay + "_" + ca.replace(/\s/g, "") + "_G" + (i + 1);
+
+    try {
+        if (!window.firestoreSetDoc || !window.firebaseDoc || !window.db) {
+            throw new Error("Firebase chưa sẵn sàng.");
+        }
+
+        await window.firestoreSetDoc(
+            window.firebaseDoc(window.db, "quickReports", docId),
+            banGhi
+        );
+
+        $("nhanhStatus" + i).textContent = "Đã báo cáo";
+
+const soDaBaoCao = document.querySelectorAll(
+    '#nhanhTable tbody td[id^="nhanhStatus"]'
+);
+
+const daBaoCao = Array.from(soDaBaoCao).filter(
+    x => x.textContent === "Đã báo cáo"
+).length;
+
+$("nhanhProgress").textContent =
+    daBaoCao + "/8 lần đã báo cáo";
+
+alert("Đã lưu lần " + (i + 1) + " lúc " + gio + "!");
+
+    } catch (error) {
+        console.error(error);
+        alert("Không lưu được báo cáo nhanh: " + error.message);
+    }
+}
+    async function taiBaoCaoNhanh() {
+    const ngay = $("nhanhDate").value;
+    const ca = $("nhanhShift").value;
+
+    if (!ngay || !ca || !window.db ||
+        !window.firebaseDoc || !window.firebaseGetDoc) {
+        return;
+    }
+
+    let daBaoCao = 0;
+
+    for (let i = 0; i < 8; i++) {
+        const docId = ngay + "_" + ca.replace(/\s/g, "") + "_G" + (i + 1);
+
+        try {
+            const ref = window.firebaseDoc(window.db, "quickReports", docId);
+            const snap = await window.firebaseGetDoc(ref);
+
+           const status = $("nhanhStatus" + i);
+
+if (!status) continue;
+
+if (snap.exists()) {
+    status.textContent = "Đã báo cáo";
+    daBaoCao++;
+} else {
+    status.textContent = "Chưa báo cáo";
+}
+        } catch (error) {
+            console.error("Lỗi tải báo cáo nhanh:", error);
+        }
+    }
+
+    $("nhanhProgress").textContent =
+        daBaoCao + "/8 lần đã báo cáo";
+}
+
+$("nhanhDate")?.addEventListener("change", async () => {
+    khoiTaoBangBaoCaoNhanh();
+    await taiBaoCaoNhanh();
+});
+
+$("nhanhShift")?.addEventListener("change", async () => {
+    khoiTaoBangBaoCaoNhanh();
+    await taiBaoCaoNhanh();
+});
+    function resetForm(clearDate=true){document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");$("note").value="";if(clearDate)$("date").value=new Date().toISOString().slice(0,10)}
 function filtered(){let d=$("filterDate").value,s=$("filterShift").value,t=$("filterText").value.toLowerCase();return data.filter(r=>(!d||r.date===d)&&(!s||r.shift===s)&&(!t||Object.keys(r.input).concat(Object.keys(r.output)).some(k=>k.toLowerCase().includes(t))))}
 function renderReport(){
  let rows=filtered();let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Tổng vào sàng</th><th>Tổng sản xuất</th><th>Ghi chú</th></tr>";
@@ -311,7 +543,7 @@ document.body.classList.remove("loggedIn");
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
     import { getAuth } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
     const firebaseConfig = {
         apiKey: "AIzaSyB3qoTMjYyQqM8jc8m65lu54faMxCAivAA",
         authDomain: "baocaott4.firebaseapp.com",
@@ -328,7 +560,8 @@ document.body.classList.remove("loggedIn");
     const db = getFirestore(app);
     window.db = db;
 window.firestoreSetDoc = setDoc;
-    window.firebaseDoc = doc;
+window.firebaseGetDoc = getDoc;
+window.firebaseDoc = doc;
 window.firebaseAuth = auth;
 window.firebaseAuth = auth;
 
