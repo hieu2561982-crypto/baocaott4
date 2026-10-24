@@ -564,11 +564,73 @@ async function taiBaoCaoNhanh() {
 }
 
     function resetForm(clearDate=true){document.querySelectorAll("#nhap input[type=number],#nhap input:not([type])").forEach(x=>x.value="");$("note").value="";if(clearDate)$("date").value=new Date().toISOString().slice(0,10)}
-function filtered(){let d=$("filterDate").value,s=$("filterShift").value,t=$("filterText").value.toLowerCase();return data.filter(r=>(!d||r.date===d)&&(!s||r.shift===s)&&(!t||Object.keys(r.input).concat(Object.keys(r.output)).some(k=>k.toLowerCase().includes(t))))}
-function renderReport(){
- let rows=filtered();let html="<tr><th>Ngày</th><th>Ca</th><th>Chạy máy</th><th>Tổng vào sàng</th><th>Tổng sản xuất</th><th>Ghi chú</th></tr>";
- rows.sort((a,b)=>(a.date+a.shift).localeCompare(b.date+b.shift)).forEach(r=>{let ti=Object.values(r.input).reduce((a,b)=>a+b,0),to=Object.values(r.output).reduce((a,b)=>a+b,0);html+=`<tr><td>${r.date}</td><td>${r.shift}</td><td>${r.run}</td><td>${ti.toFixed(2)}</td><td>${to.toFixed(2)}</td><td>${r.note||""}</td></tr>`});$("reportTable").innerHTML=html;
+
+function filtered() {
+    const d = $("filterDate").value;
+    const s = $("filterShift").value;
+    const t = $("filterText").value.toLowerCase();
+
+    return data.filter(r =>
+        (!d || r.date === d) &&
+        (!s || r.shift === s) &&
+        (
+            !t ||
+            Object.keys(r.input || {})
+                .concat(
+                    Object.keys(r.output || {}),
+                    Object.keys(r.coalUse || {})
+                )
+                .some(k => k.toLowerCase().includes(t))
+        )
+    );
 }
+
+
+function renderReport() {
+    const rows = filtered();
+
+    let html = `
+        <tr>
+            <th>Ngày</th>
+            <th>Ca</th>
+            <th>Chạy máy</th>
+            <th>Tổng vào sàng</th>
+            <th>Tổng sản xuất</th>
+            <th>Tổng than tiêu thụ</th>
+            <th>Ghi chú</th>
+        </tr>
+    `;
+
+    rows.sort((a, b) =>
+        (a.date + a.shift).localeCompare(b.date + b.shift)
+    );
+
+    rows.forEach(r => {
+        const tongVao = Object.values(r.input || {})
+            .reduce((a, b) => a + (Number(b) || 0), 0);
+
+        const tongSanXuat = Object.values(r.output || {})
+            .reduce((a, b) => a + (Number(b) || 0), 0);
+
+        const tongTieuThu = Object.values(r.coalUse || {})
+            .reduce((a, b) => a + (Number(b) || 0), 0);
+
+        html += `
+            <tr>
+                <td>${r.date || ""}</td>
+                <td>${r.shift || ""}</td>
+                <td>${Number(r.run) || 0}</td>
+                <td>${tongVao.toFixed(2)}</td>
+                <td>${tongSanXuat.toFixed(2)}</td>
+                <td>${tongTieuThu.toFixed(2)}</td>
+                <td>${r.note || ""}</td>
+            </tr>
+        `;
+    });
+
+    $("reportTable").innerHTML = html;
+}
+
 function rangeData(){let f=$("fromDate").value,t=$("toDate").value;return data.filter(r=>(!f||r.date>=f)&&(!t||r.date<=t))}
 
 function renderSummary() {
@@ -688,11 +750,36 @@ function catEditor(id,list,type){$(id).innerHTML=list.map((x,i)=>`<div class="gr
 function removeCat(type,i){cfg[type].splice(i,1);renderSettings()}
 function addInputCat(){cfg.input.push("Mục mới");renderSettings()}
 function addOutputCat(){cfg.output.push("Mục mới");renderSettings()}
-function saveConfig(){
- cfg.title=$("cfgTitle").value||cfg.title;cfg.unit=$("cfgUnit").value||"tấn";
- cfg.input=cfg.input.map((_,i)=>$("inputCat"+i)?.value||"Mục mới");cfg.output=cfg.output.map((_,i)=>$("outputCat"+i)?.value||"Mục mới");
- localStorage.setItem("tt4_cfg",JSON.stringify(cfg));$("appTitle").textContent=cfg.title;renderInput();renderOutput();renderSettings();renderSummary();alert("Đã lưu cấu hình");
+function saveConfig() {
+    cfg.title = $("cfgTitle").value || cfg.title;
+    cfg.unit = $("cfgUnit").value || "tấn";
+
+    cfg.input = cfg.input.map(
+        (_, i) => $("inputCat" + i)?.value || "Mục mới"
+    );
+
+    cfg.output = cfg.output.map(
+        (_, i) => $("outputCat" + i)?.value || "Mục mới"
+    );
+
+    // Giữ nguyên danh mục Than tiêu thụ
+    cfg.coalUse = Array.isArray(cfg.coalUse)
+        ? cfg.coalUse
+        : defaultCfg.coalUse.slice();
+
+    localStorage.setItem("tt4_cfg", JSON.stringify(cfg));
+
+    $("appTitle").textContent = cfg.title;
+
+    renderInput();
+    renderOutput();
+    renderCoalUse();
+    renderSettings();
+    renderSummary();
+
+    alert("Đã lưu cấu hình!");
 }
+
 
 function exportCSV() {
     const rows = rangeData();
